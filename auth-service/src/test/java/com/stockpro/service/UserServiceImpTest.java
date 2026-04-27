@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import com.stockpro.dtos.*;
 import com.stockpro.entity.User;
+import com.stockpro.entity.RefreshToken;
 import com.stockpro.exception.BadRequestException;
 import com.stockpro.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,8 +36,11 @@ class UserServiceImpTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
     @InjectMocks
-    private UserServiceImp userService;
+    private AuthServiceImpl authService;
 
     private RegisterRequest registerRequest;
     private LoginRequest loginRequest;
@@ -73,9 +77,9 @@ class UserServiceImpTest {
         when(passwordEncoder.encode("Suraj@123")).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        String response = userService.registerRequest(registerRequest);
+        AuthResponse response = authService.register(registerRequest);
 
-        assertEquals("OTP sent to your email for verification.", response);
+        assertEquals("OTP sent to your email for verification.", response.getMessage());
         verify(userRepository).save(any(User.class));
         verify(emailService).sendOtpEmail(eq("suraj@test.com"), anyString(), eq("Registration OTP"), eq("REGISTER"));
     }
@@ -85,8 +89,8 @@ class UserServiceImpTest {
         user.setActive(true);
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> userService.registerRequest(registerRequest));
+        BadRequestException ex = assertThrows(BadRequestException.class,
+                () -> authService.register(registerRequest));
 
         assertEquals("User already registered with this email!", ex.getMessage());
         verify(emailService, never()).sendOtpEmail(any(), any(), any(), any());
@@ -98,9 +102,9 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("Suraj@123")).thenReturn("encodedPassword");
 
-        String response = userService.registerRequest(registerRequest);
+        AuthResponse response = authService.register(registerRequest);
 
-        assertEquals("OTP sent to your email for verification.", response);
+        assertEquals("OTP sent to your email for verification.", response.getMessage());
         verify(userRepository).save(any(User.class));
         verify(emailService).sendOtpEmail(eq("suraj@test.com"), anyString(), eq("Registration OTP"), eq("REGISTER"));
     }
@@ -114,7 +118,11 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
         when(jwtService.generateToken("suraj@test.com", 1L, "WAREHOUSE_STAFF")).thenReturn("jwt-token");
 
-        AuthResponse response = userService.registerUser("suraj@test.com", "123456");
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("refresh-token");
+        when(refreshTokenService.createRefreshToken(1L)).thenReturn(refreshToken);
+
+        AuthResponse response = authService.registerUser("suraj@test.com", "123456");
 
         assertEquals("jwt-token", response.getToken());
         assertEquals("User Register success", response.getMessage());
@@ -129,7 +137,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> userService.registerUser("suraj@test.com", "123456"));
+                () -> authService.registerUser("suraj@test.com", "123456"));
 
         assertEquals("OTP Invalid! please try again.", ex.getMessage());
     }
@@ -141,7 +149,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> userService.registerUser("suraj@test.com", "123456"));
+                () -> authService.registerUser("suraj@test.com", "123456"));
 
         assertEquals("OTP Expired! please try again.", ex.getMessage());
     }
@@ -152,7 +160,11 @@ class UserServiceImpTest {
         when(passwordEncoder.matches("Suraj@123", "encodedPassword")).thenReturn(true);
         when(jwtService.generateToken("suraj@test.com", 1L, "WAREHOUSE_STAFF")).thenReturn("jwt-token");
 
-        AuthResponse response = userService.loginUser(loginRequest);
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setToken("refresh-token");
+        when(refreshTokenService.createRefreshToken(1L)).thenReturn(refreshToken);
+
+        AuthResponse response = authService.login(loginRequest);
 
         assertEquals("jwt-token", response.getToken());
         assertEquals("Login Success", response.getMessage());
@@ -164,7 +176,7 @@ class UserServiceImpTest {
         when(passwordEncoder.matches("Suraj@123", "encodedPassword")).thenReturn(false);
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> userService.loginUser(loginRequest));
+                () -> authService.login(loginRequest));
 
         assertEquals("Invalid Password!", ex.getMessage());
     }
@@ -176,7 +188,7 @@ class UserServiceImpTest {
         when(passwordEncoder.matches("Suraj@123", "encodedPassword")).thenReturn(true);
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> userService.loginUser(loginRequest));
+                () -> authService.login(loginRequest));
 
         assertEquals("Account is not verified. Please verify your email using the OTP sent during registration.", ex.getMessage());
     }
@@ -185,7 +197,7 @@ class UserServiceImpTest {
     void initiateForgetPassword_ShouldSendOtp_WhenUserExists() {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        String response = userService.initiateForgetPassword("suraj@test.com");
+        String response = authService.initiateForgetPassword("suraj@test.com");
 
         assertEquals("Verification code sent to your email.", response);
         verify(userRepository).save(any(User.class));
@@ -197,7 +209,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.empty());
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> userService.initiateForgetPassword("suraj@test.com"));
+                () -> authService.initiateForgetPassword("suraj@test.com"));
 
         assertEquals("User not found!", ex.getMessage());
     }
@@ -208,7 +220,7 @@ class UserServiceImpTest {
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        String response = userService.verifyOtp("suraj@test.com", "123456");
+        String response = authService.verifyOtp("suraj@test.com", "123456");
 
         assertEquals("OTP Verified. You may now reset your password.", response);
     }
@@ -220,7 +232,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> userService.verifyOtp("suraj@test.com", "123456"));
+                () -> authService.verifyOtp("suraj@test.com", "123456"));
 
         assertEquals("OTP Invalid! please try again.", ex.getMessage());
     }
@@ -232,7 +244,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
         BadRequestException ex = assertThrows(BadRequestException.class,
-                () -> userService.verifyOtp("suraj@test.com", "123456"));
+                () -> authService.verifyOtp("suraj@test.com", "123456"));
 
         assertEquals("OTP Expired! please try again.", ex.getMessage());
     }
@@ -242,7 +254,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("NewPass@123")).thenReturn("newEncodedPassword");
 
-        String response = userService.resetPassword("suraj@test.com", "NewPass@123");
+        String response = authService.resetPassword("suraj@test.com", "NewPass@123");
 
         assertEquals("Password updated successfully.", response);
         assertEquals("newEncodedPassword", user.getPasswordHash());
@@ -258,7 +270,7 @@ class UserServiceImpTest {
 
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        UserResponseDTO response = userService.updateProfile("suraj@test.com", request);
+        UserResponseDTO response = authService.updateProfile("suraj@test.com", request);
 
         assertEquals("Updated Name", response.getFullName());
         assertEquals("9999999999", response.getPhone());
@@ -274,7 +286,7 @@ class UserServiceImpTest {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
         when(userRepository.findByEmail("newmail@test.com")).thenReturn(Optional.empty());
 
-        UserResponseDTO response = userService.updateProfile("suraj@test.com", request);
+        UserResponseDTO response = authService.updateProfile("suraj@test.com", request);
 
         assertEquals("Updated Name", response.getFullName());
         verify(emailService).sendOtpEmail(eq("newmail@test.com"), anyString(), eq("Email Update Verification"), eq("UPDATE_EMAIL"));
@@ -288,7 +300,7 @@ class UserServiceImpTest {
 
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        String response = userService.verifyEmailUpdate("suraj@test.com", "123456");
+        String response = authService.verifyEmailUpdate("suraj@test.com", "123456");
 
         assertEquals("Email updated successfully to newmail@test.com", response);
         assertEquals("newmail@test.com", user.getEmail());
@@ -299,7 +311,7 @@ class UserServiceImpTest {
     void getUserByEmail_ShouldReturnUserResponse() {
         when(userRepository.findByEmail("suraj@test.com")).thenReturn(Optional.of(user));
 
-        UserResponseDTO response = userService.getUserByEmail("suraj@test.com");
+        UserResponseDTO response = authService.getUserByEmail("suraj@test.com");
 
         assertEquals("Suraj Kumar", response.getFullName());
         assertEquals("suraj@test.com", response.getEmail());
@@ -309,7 +321,7 @@ class UserServiceImpTest {
     void getAllUsers_ShouldReturnUserList() {
         when(userRepository.findAll()).thenReturn(List.of(user));
 
-        List<UserResponseDTO> users = userService.getAllUsers();
+        List<UserResponseDTO> users = authService.getAllUsers();
 
         assertEquals(1, users.size());
         assertEquals("Suraj Kumar", users.get(0).getFullName());
@@ -319,7 +331,7 @@ class UserServiceImpTest {
     void deactivateUser_ShouldSetUserInactive() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        userService.deactivateUser(1L);
+        authService.deactivateUser(1L);
 
         assertFalse(user.isActive());
         verify(userRepository).save(user);
@@ -330,13 +342,13 @@ class UserServiceImpTest {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> userService.deactivateUser(1L));
+                () -> authService.deactivateUser(1L));
 
         assertEquals("User not found", ex.getMessage());
     }
     
     @Test
     void logout_ShouldDoNothing() {
-        assertDoesNotThrow(() -> userService.logout("dummy-token"));
+        assertDoesNotThrow(() -> authService.logout());
     }
 }

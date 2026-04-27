@@ -28,7 +28,7 @@ public class SupplierResource {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PURCHASE_OFFICER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASE_OFFICER')")
     @Operation(summary = "Create supplier")
     public ResponseEntity<ApiResponse<SupplierResponse>> createSupplier(@Valid @RequestBody SupplierRequest request) {
         SupplierResponse response = supplierService.createSupplier(request);
@@ -77,7 +77,7 @@ public class SupplierResource {
     }
 
     @PutMapping("/{supplierId}")
-    @PreAuthorize("hasRole('PURCHASE_OFFICER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASE_OFFICER')")
     @Operation(summary = "Update supplier profile")
     public ResponseEntity<ApiResponse<SupplierResponse>> updateSupplier(@PathVariable Long supplierId,
             @Valid @RequestBody SupplierRequest request) {
@@ -86,7 +86,7 @@ public class SupplierResource {
     }
 
     @PutMapping("/{supplierId}/deactivate")
-    @PreAuthorize("hasRole('PURCHASE_OFFICER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASE_OFFICER')")
     @Operation(summary = "Soft deactivate supplier")
     public ResponseEntity<ApiResponse<SupplierResponse>> deactivateSupplier(@PathVariable Long supplierId) {
         SupplierResponse response = supplierService.deactivateSupplier(supplierId);
@@ -94,7 +94,7 @@ public class SupplierResource {
     }
 
     @PutMapping("/{supplierId}/rating")
-    @PreAuthorize("hasRole('PURCHASE_OFFICER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASE_OFFICER')")
     @Operation(summary = "Update supplier rating")
     public ResponseEntity<ApiResponse<SupplierResponse>> updateRating(@PathVariable Long supplierId,
             @Valid @RequestBody SupplierRatingRequest request) {

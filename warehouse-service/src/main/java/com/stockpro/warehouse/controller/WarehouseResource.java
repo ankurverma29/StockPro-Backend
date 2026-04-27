@@ -1,0 +1,120 @@
+package com.stockpro.warehouse.controller;
+
+import com.stockpro.warehouse.dto.request.CreateWarehouseRequest;
+import com.stockpro.warehouse.dto.request.UpdateWarehouseRequest;
+import com.stockpro.warehouse.dto.response.ApiResponse;
+import com.stockpro.warehouse.dto.response.WarehouseResponse;
+import com.stockpro.warehouse.dto.response.WarehouseUtilizationResponse;
+import com.stockpro.warehouse.service.WarehouseService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@Validated
+@RequestMapping("/api/v1/warehouses")
+@Tag(name = "Warehouse Management", description = "Warehouse master data and utilization APIs.")
+@SecurityRequirement(name = "bearerAuth")
+public class WarehouseResource {
+
+    private static final String CREATE_WAREHOUSE_EXAMPLE = """
+            {
+              "name": "Central Distribution Hub",
+              "location": "Bengaluru",
+              "address": "Plot 12, Electronics City Phase 1, Bengaluru",
+              "managerId": 101,
+              "capacity": 5000,
+              "phone": "+91-9876543210"
+            }
+            """;
+
+    private static final String UPDATE_WAREHOUSE_EXAMPLE = """
+            {
+              "name": "Central Distribution Hub",
+              "location": "Bengaluru",
+              "address": "Plot 21, Electronics City Phase 2, Bengaluru",
+              "managerId": 102,
+              "capacity": 6000,
+              "phone": "+91-9988776655",
+              "isActive": true
+            }
+            """;
+
+    private final WarehouseService warehouseService;
+
+    public WarehouseResource(WarehouseService warehouseService) {
+        this.warehouseService = warehouseService;
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Create warehouse",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(examples = @ExampleObject(name = "CreateWarehouse", value = CREATE_WAREHOUSE_EXAMPLE))))
+    public ResponseEntity<ApiResponse<WarehouseResponse>> createWarehouse(@Valid @RequestBody CreateWarehouseRequest request) {
+        WarehouseResponse response = warehouseService.createWarehouse(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response, "Warehouse created successfully"));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER', 'MANAGER', 'WAREHOUSE_STAFF')")
+    @Operation(summary = "Get warehouse by id")
+    public ResponseEntity<ApiResponse<WarehouseResponse>> getWarehouseById(@PathVariable Long id) {
+        WarehouseResponse response = warehouseService.getById(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Warehouse retrieved successfully"));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER', 'MANAGER', 'WAREHOUSE_STAFF')")
+    @Operation(summary = "Get all warehouses with pagination")
+    public ResponseEntity<ApiResponse<Page<WarehouseResponse>>> getAllWarehouses(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) int size,
+            @RequestParam(defaultValue = "warehouseId") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+        Page<WarehouseResponse> response = warehouseService.getAllWarehouses(page, size, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success(response, "Warehouses retrieved successfully"));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER', 'MANAGER')")
+    @Operation(
+            summary = "Update warehouse",
+            requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    content = @Content(examples = @ExampleObject(name = "UpdateWarehouse", value = UPDATE_WAREHOUSE_EXAMPLE))))
+    public ResponseEntity<ApiResponse<WarehouseResponse>> updateWarehouse(@PathVariable Long id,
+            @Valid @RequestBody UpdateWarehouseRequest request) {
+        WarehouseResponse response = warehouseService.updateWarehouse(id, request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Warehouse updated successfully"));
+    }
+
+    @PutMapping("/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Soft deactivate warehouse")
+    public ResponseEntity<ApiResponse<WarehouseResponse>> deactivateWarehouse(@PathVariable Long id) {
+        WarehouseResponse response = warehouseService.deactivateWarehouse(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Warehouse deactivated successfully"));
+    }
+
+    @GetMapping("/{id}/utilization")
+    @PreAuthorize("hasAnyRole('ADMIN', 'INVENTORY_MANAGER', 'MANAGER', 'WAREHOUSE_STAFF')")
+    @Operation(summary = "Get warehouse utilization percentage")
+    public ResponseEntity<ApiResponse<WarehouseUtilizationResponse>> getWarehouseUtilization(@PathVariable Long id) {
+        WarehouseUtilizationResponse response = warehouseService.getWarehouseUtilization(id);
+        return ResponseEntity.ok(ApiResponse.success(response, "Warehouse utilization retrieved successfully"));
+    }
+}

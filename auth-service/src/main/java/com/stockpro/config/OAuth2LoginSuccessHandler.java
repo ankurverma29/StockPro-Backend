@@ -117,7 +117,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private void redirectFailure(HttpServletResponse response, String message) throws IOException {
         response.sendRedirect(
-                frontendUrl + "/auth?oauth2=failed&error=" +
+                frontendUrl + "/auth/login?oauth2=failed&error=" +
                 URLEncoder.encode(message, StandardCharsets.UTF_8)
         );
     }

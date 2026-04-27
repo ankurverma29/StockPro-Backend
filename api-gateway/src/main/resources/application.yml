@@ -27,7 +27,6 @@ spring:
           predicates:
             - Path=/api/v1/products/**
           filters:
-            - StripPrefix=2
             - AuthenticationFilter
 
         - id: warehouse-service
