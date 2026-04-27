@@ -1,0 +1,74 @@
+server:
+  port: ${PORT:8084}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ThisIsASecretKeyForJwtTokenGenerationThatMustBeAtLeast32BytesLong12345}
+
+product:
+  service:
+    name: ${PRODUCT_SERVICE_NAME:PRODUCT-SERVICE}
+
+supplier:
+  service:
+    name: ${SUPPLIER_SERVICE_NAME:SUPPLIER-SERVICE}
+    path: ${SUPPLIER_SERVICE_PATH:/api/v1/suppliers}
+
+warehouse:
+  service:
+    name: ${WAREHOUSE_SERVICE_NAME:WAREHOUSE-SERVICE}
+
+alert:
+  rabbitmq:
+    exchange: ${ALERT_EXCHANGE:stockpro.alert.exchange}
+    routing-keys:
+      po-pending: ${PO_PENDING_ROUTING_KEY:alert.po-pending}
+      overdue-receipt: ${OVERDUE_RECEIPT_ROUTING_KEY:alert.overdue-receipt}
+
+purchase:
+  alert:
+    overdue-receipt:
+      enabled: ${PURCHASE_OVERDUE_ALERT_ENABLED:false}
+      cron: ${PURCHASE_OVERDUE_ALERT_CRON:0 0 9 * * *}
+
+spring:
+  application:
+    name: PURCHASE-SERVICE
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/purchase_service?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata}
+    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:Suraj@123}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+springdoc:
+  swagger-ui:
+    operationsSorter: alpha
+    tagsSorter: alpha
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
